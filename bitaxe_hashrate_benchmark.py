@@ -110,8 +110,8 @@ system_reset_done = False
 
 
 # General Configuration Settigns
-sample_interval = 30  # sample interval seconds
-benchmark_iteration_time = sample_interval*40 # how long each iteration should take
+sample_interval = 5  # sample interval seconds
+benchmark_iteration_time = 300#sample_interval*40 # how long each iteration should take
 
 max_temp = 66         # Will stop if temperature reaches or exceeds this value
 max_allowed_voltage = 1300
@@ -399,7 +399,7 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
         
     else:
         independant_hashrates = []
-        itimes = reversed([math.floor(t/hashrate_window_length) for t in times])
+        itimes = [math.floor(t/hashrate_window_length) for t in times][::-1]
 
         # iterate unique values
         for idx in list(set(itimes)):
