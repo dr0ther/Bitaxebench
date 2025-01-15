@@ -7,6 +7,7 @@ import argparse
 import statistics
 import traceback
 import math
+import random
 
 # ANSI Color Codes
 GREEN = "\033[92m"
@@ -76,7 +77,9 @@ class particle_swarm():
             # basic extrapolation
             new_position = []
             for i,last_updates in enumerate(self.last_update):
-                mean_update = statistics.mean(last_updates)
+                mean_update = 0.5*statistics.mean(last_updates) + 0.5*(random.random()-0.5)*statistics.mean(last_updates)
+
+
                 new_pos = current_pos[i] + mean_update*self.factor
                 new_position.append(new_pos)
                 self.last_update[i][particle_i] = mean_update
@@ -86,9 +89,14 @@ class particle_swarm():
         for i,(j,k) in enumerate(zip(current_pos,best_pos)):
             direction = (k - j)/abs(k - j)
             distance = self.factor*abs(k-j)
-            new_pos = j + direction*distance
+            old_velocity_strength = 0.7
+            last_velocity = self.last_update[i][particle_i]
+            velocity_to_global_best = direction*distance
+
+            new_velocity = old_velocity_strength*last_velocity+ (1-old_velocity_strength)*velocity_to_global_best
+            new_pos = j + new_velocity
             new_position.append(new_pos)
-            self.last_update[i][particle_i] = direction*distance
+            self.last_update[i][particle_i] = new_pos
         return new_position
     
     def next_particle(self):
@@ -406,7 +414,10 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
         # iterate unique values
         for idx in list(set(itimes)):
             # finds the last value from a hashrate_window_length time blocks
-            independant_hashrates.append(itimes.index(idx)) 
+            hidx = itimes.index(idx)
+            independant_hashrates.append(hashrates[hidx]) 
+
+        print(independant_hashrates)
         hashrate_std = statistics.stdev(independant_hashrates)
 
     hashrate_avg = statistics.mean(independant_hashrates) 
