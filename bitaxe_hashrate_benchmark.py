@@ -267,11 +267,18 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
     vcores = []
     hashrates = []
     total_samples = benchmark_time // sample_interval
+    start_itr = time.time()
 
-    
+    chip_hashrate = frequency* 1000000 * small_core_count * asic_count
+
+    # Calculate expected hashrate window size of esp miner
+    ESP_HISTORY_LEGTH = 100
+    ESP_DIFF = 256
+    diff = ESP_DIFF*ESP_HISTORY_LEGTH*2**32
+    hashrate_window_length= diff/chip_hashrate
 
     # Calculate expected hashrate based on frequency
-    expected_hashrate_ghs = frequency* 1000000 * ((small_core_count * asic_count) / (10**9))
+    expected_hashrate_ghs = chip_hashrate / (10**9)
 
     # First step of benchmarking 
     # find stable temps
@@ -303,8 +310,15 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
 
     print(GREEN + f'Found stable temps, Starting benchmark iteration' + RESET)
     info = get_system_info()
+
+    # wait until hashrate buffer is full
+    while (time.time()-start_itr<min(hashrate_window_length,300)):
+        time.sleep(1)
+
+
     t0 = time.time()
     
+
     # Collect samples
     # samples are autocorrelated because of window function used for 10m 
     # samples are only independant after 10m
@@ -375,20 +389,21 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
     # calc our own hashrate we know the pool diff is 256 as we have test pool
     # hashrate_mhs = pool_diff*(info.get("sharesAccepted")-starting_nonce_offset)/elapsed/10000000
 
+    
     # Calculting independant samples
     # Unfortunatly our data is auto correlated because of moving average 
     # Hashrate Ghs 
     hashrate_std = 0
-    if elapsed < 600:
+    if elapsed < hashrate_window_length:
         independant_hashrates = [hashrates[-1]]
         
     else:
         independant_hashrates = []
-        itimes = reversed([math.floor(t/600) for t in times])
+        itimes = reversed([math.floor(t/hashrate_window_length) for t in times])
 
         # iterate unique values
         for idx in list(set(itimes)):
-            # finds the last value from a 600's time blocks
+            # finds the last value from a hashrate_window_length time blocks
             independant_hashrates.append(itimes.index(idx)) 
         hashrate_std = statistics.stdev(independant_hashrates)
 
