@@ -146,7 +146,7 @@ The benchmark results are saved to `bitaxe_benchmark_results.json`, containing:
 The tool follows this process:
 1. Starts with user-specified or default voltage/frequency
 2. always find stable temp before starting benchmark sample
-3. Uses PSO algorithom with a Cost function to optimise a numeric goal
+3. Uses PSO algorithom with a Cost function to optimise a numeric goal e.g hashrate or efficiency
 4. Records and ranks all successful configurations
 5. Automatically applies the best performing stable settings
 
