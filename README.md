@@ -151,7 +151,7 @@ The tool follows this process:
 5. Automatically applies the best performing stable settings
 
 ## Todo 
-* add Shufps test struct server for the same jobs and allowing lower pool diff reducing benchmarking time and hashrate variance
+* add Shufps test stratum server for the same jobs and allowing lower pool diff reducing benchmarking time and hashrate variance
 
 
 ## Contributing
