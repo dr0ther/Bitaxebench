@@ -303,7 +303,6 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
 
     print(GREEN + f'Found stable temps, Starting benchmark iteration' + RESET)
     info = get_system_info()
-    starting_nonce_offset = info['sharesAccepted']
     t0 = time.time()
     
     # Collect samples
