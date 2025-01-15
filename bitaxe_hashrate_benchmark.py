@@ -305,7 +305,9 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
             # cool dont bother chip refused combination
             temp_threshold = 39
             if temp_data[-1] < temp_threshold: 
-                return None, None, None, False 
+                print(RED + f'Temp reduced to 39 Bitaxe rejected config' + RESET)
+                # fill zeros so optimizer knows not to go there
+                return  (0, temp_data[-1], 0, 0, 0, 0, 0, 0) 
         time.sleep(3)
 
     print(GREEN + f'Found stable temps, Starting benchmark iteration' + RESET)
