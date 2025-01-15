@@ -458,26 +458,28 @@ def reset_to_best_setting():
 
 
 
-def cost_function(avg_hashrate,expected_hashrate, control_hashrate, avg_temp,control_temp, efficiency_jth,target):
+def cost_function(target,expected_hashrate_ghs,control_hashrate,control_temp,data):
     # What are we maximising
+    # we can use any of the following
+    (hashrate_ghs, temp_avg, efficiency_jth,power_avg,temp_std,v_core_stray,vcore_std,power_std) = data
 
-    hashrate_ratio = avg_hashrate/expected_hashrate
+    hashrate_ratio = hashrate_ghs/expected_hashrate_ghs
     efficiency_target = 20/efficiency_jth
 
-    temp_control_term = (1+abs(control_temp-avg_temp))
-    hashrate_control_term = (1+abs(control_hashrate-avg_hashrate))
+    temp_control_term = (1+abs(control_temp-temp_avg))
+    hashrate_control_term = (1+abs(control_hashrate-hashrate_ghs))
 
     if target == "efficiancy":
         return efficiency_target
     
     elif target == "hashrate":
-        return avg_hashrate
+        return hashrate_ghs
     
     elif target == "hashrate_expected":
         return hashrate_ratio
 
     elif target == "hashrate_temp":
-        return avg_hashrate/temp_control_term
+        return hashrate_ghs/temp_control_term
     
     elif target == "hashrate_efficiancy":
         return efficiency_target/hashrate_control_term
@@ -490,7 +492,7 @@ def cost_function(avg_hashrate,expected_hashrate, control_hashrate, avg_temp,con
         pass
     
     # Default - hashrate
-    return avg_hashrate
+    return hashrate_ghs
 
 
 def start_benchmarking():
@@ -554,7 +556,7 @@ def start_benchmarking():
                 # this is where we get our score for the optimiser
                 # update the optimiser with new infomation
                 (hashrate_ghs, temp_avg, efficiency_jth,power_avg,temp_std,v_core_stray,vcore_std,power_std) = result_data
-                score = cost_function(hashrate_ghs,expected_hashrate_ghs,control_hashrate,temp_avg,control_temp,efficiency_jth,optimisation_target)
+                score = cost_function(optimisation_target,expected_hashrate_ghs,control_hashrate,control_temp,result_data)
                 ps_optimiser.add_new_postion_score(ps_optimiser.current_particle_i,current_pos,score)
                 ps_optimiser.next_particle()
 
