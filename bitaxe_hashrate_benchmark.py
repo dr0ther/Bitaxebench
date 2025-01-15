@@ -417,7 +417,6 @@ def benchmark_iteration(core_voltage, frequency,sample_interval,benchmark_time):
             hidx = itimes.index(idx)
             independant_hashrates.append(hashrates[hidx]) 
 
-        print(independant_hashrates)
         hashrate_std = statistics.stdev(independant_hashrates)
 
     hashrate_avg = statistics.mean(independant_hashrates) 
