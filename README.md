@@ -53,8 +53,8 @@ you can add your own for any combination of
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/mrv777/Bitaxe-Hashrate-Benchmark.git
-cd Bitaxe-Hashrate-Benchmark
+git clone https://github.com/adammwest/Bitaxebench/
+cd Bitaxebench
 ```
 
 2. Create and activate a virtual environment:
