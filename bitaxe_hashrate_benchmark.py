@@ -476,7 +476,9 @@ def cost_function(target,expected_hashrate_ghs,control_hashrate,control_temp,dat
     (hashrate_ghs, temp_avg, efficiency_jth,power_avg,temp_std,v_core_stray,vcore_std,power_std) = data
 
     hashrate_ratio = hashrate_ghs/expected_hashrate_ghs
-    efficiency_target = 20/efficiency_jth
+    
+    efficiency_target = 0.000001
+    if efficiency_jth> 0: efficiency_target = 20/efficiency_jth
 
     temp_control_term = (1+abs(control_temp-temp_avg))
     hashrate_control_term = (1+abs(control_hashrate-hashrate_ghs))
