@@ -22,152 +22,94 @@ A Python-based benchmarking tool for optimizing Bitaxe mining performance by tes
 - Independant hashrate samples only
 
 
+## Formalising Hashrate Optimisation
+the goal is to maximise hashrate, well what makes hashrate? 
 
-## Optimiser
-https://en.wikipedia.org/wiki/Particle_swarm_optimization
-the optimiser is a global optimiser that has its inital postions spread out evenly, 
-so should converge to the global minimum given we have smooth convex space to search
-
-# Cost function
-what the optimser tends towards
-- `efficiancy` 
-- `hashrate`
-- `hashrate_expected` ratio of hashrate/expected hashrate
-- `hashrate_temp` optimise temp to control temp and hashrate
-- `hashrate_efficiancy` optimise hashrate to control temp and efficiancy
-- `efficiancy_temp` optimise temp to control temp and efficiancy
-
-you can add your own for any combination of 
-[`efficiancy`, `temp`, `hashrate`]
-
-# Formalising Hashrate Optimisation
-https://www.rohm.com/electronics-basics/transistors/tr_what7
-
-3 data points are needed to create the estimate of the curve
-
-basicially you have various points
+### **Simple model**
+this is the simpliest form which is approximatly accurate\
+`Expected Hashrate = E(H) = frequency * cores`
 
 
+### **Penalties**
+there are penalties to this function we have temperature and voltage interactions
 
-what does in entail?
-at its core there is `Hashrate = frequency*C`, where C is a constant
+1. High temps\
+if we have a high temperature we get less hashrate\
+`Temp_penalty = T0-tempurature` 
 
-so we can just add more frequncy rightttt?
-well for more frequency we need more power, that is what vcore is for.
-so to achieve a specific F there is a minimum amount of power the chip needs
-`Vmin = F * c`
 
-so we have the constraint
-`Vmin < Vcore` where Vmin = ?
+2. Vcore min\
+if we dont have enough vcore for a frequency we cant use it\
+`Vmin_penalty = Vmin-Vcore`
 
-then even if the chip has enough power, it starts gettting more hot
-when the chip is too hot it loses nonces, or hashrate.
-so we have a heat penalty 
-`Tp = (t-T)/C`
-
-heat is a function of power and power relates to Voltage
-`W = V * A`
-so 
-`Vcore = C * T` Vcore relates to tempaerature
-
-putting it all together
-
-`T = Vcore * C`
-`Tp = (t-T) / C`
-`Vmin = F * c`
-`Vmin < Vcore`
-
-stage 1 baseline equation
-`Hashrate = frequency * C`
-
-stage 2 min vcore
-if min vcore not reached freq will be rejected or very low 
-`Vcore > Vmin`
-`let Vmin = frequency  * c`
-`let e = 1e-7`
-`Pv = Vcore-Vmin/(abs(Vcore-Vmin)+e)`
-`penatly = 1-e when Vcore>Vmin`
-`penatly = e-1 when Vmin>Vcore`
-
-stage 3 temperatture
-`t = Vcore * C`
-`Pt = (t0-t) / C`
+Penalty function I chose sigmoid as it has a gradient.\
+`sigmoid = 1/(1+e^-x) = sig(x)`\
+rather than a step function changing from 0-> for some value x
 
 
 
-simplifying
-`Hashrate = Pt * Pv * frequency * C`
-`Hashrate = (t0- Vcore * C0) / C1 * (Vcore-(frequency  * C3)/(abs(Vcore-(frequency  * C3))+e)) * frequency * C2`
+### **Relations**
+`vmin = k * freq`\
+vmin relates to the frequency high frequency requires more power 
 
-`Hashrate = (t0- Vcore * C0) / C1 * (Vcore-(frequency  * C3)/(abs(Vcore-(frequency  * C3))+e)) * frequency * C2`
+`T = k * vcore`\
+temperature increases when more power is transmitted to the chip
 
-`Hashrate = (t0- Vcore * C0) / C1 * (Vcore-(frequency  * C3)/(abs(Vcore-(frequency  * C3))+e)) * frequency * C2`
-a* vocore * b*vcore-freq/abs(vcore-freq) * freq  = a* vcore * b*sign(vcore-freq) * freq
-
-
-C2 is known when you hve smallcore count of the asic
-t0 is not known 
-
-t0 is found by inceasing Vcore until hashrate drop
-C1 is also known when finding the hashrate drop as you will have examples  
-C0 is also known when finding the hashrate drop as you will have examples  
+`T0` T0 is the overheat temperature in my model it is static
 
 
-Now we have a method for parameterising the Theoretical Hashrate equation 
+this results in a complicated equation\
+`Hashrate = E(H) * Temp_penalty * Vmin_penalty`\
+`         = E(H) * sig(T0-T) * sig(Vmin-Vcore)`
+
+### **Code**
+plotly pandas matplotlib requried for graphs\
+the code `run_analysis.py` parametrizes the above function a
 
 
-differential for z
-z = f(x, y)
-dz = fx(x, y) · dx + fy(x, y) · dy
-f (x + ∆x, y + ∆y) = f (x, y) + ∆z
+### Interpretting output
+the program will output somthing like
+```
+Learned voltage and temperature penalty parameters
+Vmin = p * (F * k + c )
+p=0.36 k=0.76289 c=797.56
+
+p * (T0 - (V * k + c))
+p=-0.13258 k=0.093341 c=797.56
+
+T0=75.0
+
+Errors
+Hashrate err =0.05073310330461451
+Temp err     =9.568037816170017
+
+The Best Positions
+Vcore Freq Hashrate
+    Type   V    F   H
+Benchmark  1203 508 649
+    Model  1270 600 671
+Plot saved to plot.png
+```
 
 
+1. The Errors 
+this section gives the model errors to the hashrate and temperature equations
 
-Z
-Z = (k_0 - y k_1)/k_2×(y - x k_3)/(abs(y - x k_3) + 1×10^(-7)) x k_4
-
-'dZ/dF'
-(10000000 k_4 (k_0 - k_1 y) ((y - 2 k_3 x) abs(y - x k_3) + 10000000 (y - k_3 x)^3))/(k_2 abs(y - x k_3) (10000000 abs(y - x k_3) + 1)^2)
-
-'dZ/dVcore'
--(10000000 k_4 x (k_0 (-10000000 abs(y - x k_3)^2 - abs(y - x k_3) + 10000000 k_3^2 x^2 - 20000000 k_3 x y + 10000000 y^2) + k_1 (y (2 (10000000 abs(y - x k_3)^2 + abs(y - x k_3) - 5000000 y^2) - 10000000 k_3^2 x^2) - k_3 x (10000000 abs(y - x k_3)^2 + abs(y - x k_3) - 20000000 y^2))))/(k_2 abs(y - x k_3) (10000000 abs(y - x k_3) + 1)^2)
-
-with the 'd/dF' and 'd/dVcore' we can do fun things we unlock first order gradient methods
-
-we need to quickly calculate the coefficents {k0,...,k4}
-each should have a mean and std make bounds [mean-2std,mean+2sd]
-update std ?
+2. The Best Positions
+this is the most intresting section for the user 
+```
+    Model  1270 600 671
+```
+this says the model thinks vcore=1270 and freq=600 will result in hashrate=671\
+it is estimating the maximum it may be good to try that combination
 
 
-Hashrate also has [mean-2std,mean+2sd]
-update std ?
+### **Graph**
+`run_analysis.py example` will display the following 
 
+![Example](/data/example_plot.png)
 
-inital points 
-3 particles [gradient based,global_based,new_locations]
-we can have x particles with which tend towards current global and use the gradient function
-each step update to wards 
-
-multiple targets 
-no targets
-
-how to stop
-
-noisy function evaluations
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+this shows the learned model and the best parts
 
 ## Prerequisites
 
