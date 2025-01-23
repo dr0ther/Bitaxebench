@@ -331,9 +331,10 @@ class parametrized_model():
 
     
 
-OPT = optimizer([[1000,1350],[300,700]],1276)
+
 
 def optimize():
+    OPT = parametrized_model([[1000,1350],[300,700]],1276)
     # 3 configurations to get model
     probes = [[1150,490],[1300,490],[1150,550],[1150,300]]
     n = 100
