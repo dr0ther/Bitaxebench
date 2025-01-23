@@ -81,7 +81,7 @@ for core,freq,temp,hashrate in data:
 
 print("\nErrors")
 print(f'Hashrate err ={errH/len(data)}')
-print(f'Temp err ={errT/len(data)}')
+print(f'Temp err     ={errT/len(data)}')
 
 # Calulate best postition from model
 best_p = OPT.maximise_eqn()
