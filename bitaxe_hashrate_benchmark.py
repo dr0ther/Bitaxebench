@@ -36,9 +36,9 @@ initial_frequency = args.frequency
 # Configuration
 voltage_increment = 25
 frequency_increment = 25
-benchmark_time = 1200   # 20 minutes benchmark time
-sample_interval = 30   # 30 seconds sample interval
-max_temp = 66         # Will stop if temperature reaches or exceeds this value
+benchmark_time = 10   # 20 minutes benchmark time
+sample_interval = 5   # 30 seconds sample interval
+max_temp = 75         # Will stop if temperature reaches or exceeds this value
 max_allowed_voltage = 1400
 max_allowed_frequency = 1200
 max_vr_temp = 90  # Maximum allowed voltage regulator temperature
@@ -151,7 +151,7 @@ def restart_system():
         print(YELLOW + "Restarting Bitaxe system to apply new settings..." + RESET)
         response = requests.post(f"{bitaxe_ip}/api/system/restart", timeout=10)
         response.raise_for_status()  # Raise an exception for HTTP errors
-        time.sleep(60)  # Allow 60s time for the system to restart and start hashing
+        time.sleep(15)  # Allow 60s time for the system to restart and start hashing
     except requests.exceptions.RequestException as e:
         print(RED + f"Error restarting the system: {e}" + RESET)
 
@@ -246,7 +246,7 @@ def save_results():
     try:
         # Extract IP from bitaxe_ip global variable and remove 'http://'
         ip_address = bitaxe_ip.replace('http://', '')
-        filename = f"/data/bitaxe_benchmark_results_{ip_address}.json"
+        filename = f"./data/bitaxe_benchmark_results_{ip_address}.json"
         with open(filename, "w") as f:
             json.dump(results, f, indent=4)
         print(GREEN + f"Results saved to {filename}" + RESET)
