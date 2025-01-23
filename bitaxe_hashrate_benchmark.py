@@ -42,10 +42,21 @@ class particle_swarm():
         self.factor  = factor
         self.score_history = [[] for i in range (n)] # ouput
         self.domain_history = [[] for i in range (n)] # input
+        self.last_particle_best =  [0 for i in range (n)]
+        self.last_tend_to_global = [0.1 for i in range (n)]
+        self.last_step_size = [1 for i in range (n)]
         self.current_particle_i = 0
         self.last_update = [[0 for i in range(n)] for i in range (input_dims)]
+        self.best_postitons = [[0 for i in range(n)] for i in range (input_dims)]
+        self.bounds = [0,1]
+        self.blacklist  =[]
+        self.ndims = input_dims
+        self.itr = 0
+
+        self.bbest = -9999
 
     def add_new_postion_score(self,paticle_i,domain,score):
+        self.itr +=1
         self.score_history[paticle_i].append(score)
         self.domain_history[paticle_i].append(domain)
 
@@ -55,52 +66,141 @@ class particle_swarm():
             self.domain_history[paticle_i] = self.domain_history[paticle_i][-self.history_size:]
         
 
-    def get_best_input(self):
+    def get_best_input(self,particle_i):
         best_score_per_particle = [max(i) for i in self.score_history]
         best_score = max(best_score_per_particle)
 
-        # where is best
-        best_particle = best_score_per_particle.index(best_score)
-        best_loc = self.score_history[best_particle].index(best_score)
+        # update global best
+        if best_score> self.bbest:
+            self.bbest = best_score
+            self.best_score = best_score
 
-        self.best_score = best_score
-        self.best_domain = self.domain_history[best_particle][best_loc]
+            # recalculate domains can be multiple
+            best_domains = []
+            for parti,part in enumerate(self.score_history):
+                    #print(part)
+                    if int(max(part)==self.best_score):
+                        for histi,p in enumerate(part):
+                            #print(p)
+                            if p==self.best_score:
+                                best_domains.append(self.domain_history[parti][histi])
+
+            self.best_postitons = best_domains
+            #print(len(self.best_postitons))
+
+        if len(self.best_postitons) > 1:
+            
+            current_pos = self.domain_history[particle_i][-1]
+            last_dist = 999999
+            for pos in self.best_postitons:
+                
+                dist = 0     
+                for di,d in enumerate(pos):
+                    dist += abs(current_pos[di]-d) # abs of the 2
+
+                
+                if last_dist>dist:
+                    #find 
+                    best_pos = pos
+
+            #best_pos = self.domain_history[dmin_idx[0]][dmin_idx[1]]
+            self.best_domain = best_pos #lowest distance pos
+
+            #print(f'multi target {particle_i} {self.best_domain}')
+        else:
+            
+            self.best_domain = self.best_postitons[0]
+            #print(f'single target {particle_i} {self.best_domain}')
 
         return self.best_domain
 
     def update_postiton(self,particle_i):
-        self.get_best_input()
-        best_pos = self.best_domain
+        
         current_pos = self.domain_history[particle_i][-1]
+        self.get_best_input(particle_i)
+        best_pos = self.best_domain
 
+        if (sum(self.score_history[particle_i])==0 or statistics.variance(self.score_history[particle_i])==0) and len(self.score_history)==10 and self.itr>100: 
+            # all 0's or 0 variance flatland
+            self.blacklist.append(particle_i)
+            return best_pos
+
+    
         if best_pos == current_pos: 
-            # basic extrapolation
-            new_position = []
-            for i,last_updates in enumerate(self.last_update):
-                mean_update = 0.5*statistics.mean(last_updates) + 0.5*(random.random()-0.5)*statistics.mean(last_updates)
-
-
-                new_pos = current_pos[i] + mean_update*self.factor
-                new_position.append(new_pos)
-                self.last_update[i][particle_i] = mean_update
-            return new_position
+            # could be local minima
+            # TODO find point with max distance from other points, 
+            # or next best probe or probe with list of minimum visted quadrents
+            #print(f'stop {particle_i}')
+            self.blacklist.append(particle_i)
+            return current_pos
 
         new_position = []
         for i,(j,k) in enumerate(zip(current_pos,best_pos)):
-            direction = (k - j)/abs(k - j)
-            distance = self.factor*abs(k-j)
-            old_velocity_strength = 0.7
-            last_velocity = self.last_update[i][particle_i]
-            velocity_to_global_best = direction*distance
+            
+            exploration_step_size = self.last_step_size[particle_i]
 
-            new_velocity = old_velocity_strength*last_velocity+ (1-old_velocity_strength)*velocity_to_global_best
-            new_pos = j + new_velocity
+            score_per_particle = [max(_) for _ in self.score_history]
+            particle_best = score_per_particle[particle_i]
+            max_score_opt = (1+particle_best)/(1+self.best_score)
+            tend_to_global = random.random()##(1-max_score_opt)*1 + (max_score_opt)*random.random()
+
+            factor = min(abs(self.factor * (1-1/max_score_opt)),self.factor)
+
+            
+            #tend to radnom best
+            rp = int(random.random()*self.particles_n)
+            rbest = score_per_particle[rp]
+            idx = self.score_history[rp].index(rbest)
+            particle_best_domain = self.domain_history[rp][idx]
+
+            rdirection = (1+particle_best_domain[i] - j)/abs(1+particle_best_domain[i] - j)
+            rdistance = factor*abs(particle_best_domain[i]-j) 
+
+
+            # tend to current
+            idx = score_per_particle.index(particle_best)
+            particle_best_domain = self.domain_history[idx][0]
+
+
+            # Tend to local Best
+            direction = (1+particle_best_domain[i] - j)/abs(1+particle_best_domain[i] - j)
+            distance = factor*abs(particle_best_domain[i]-j) 
+
+            if k-j==0: # could be local minima
+                #print(f"stop {particle_i}")
+                self.blacklist.append(particle_i)
+                return current_pos
+            # Tend to global
+            global_direction = (k - j)/abs(k - j) 
+            global_distance = abs(k-j)
+
+            if global_distance<2*exploration_step_size: exploration_step_size/=2
+
+            velocity_to_particle_rbest = rdirection*(factor*rdistance)
+            velocity_to_particle_best = direction*(factor*distance)
+            velocity_to_global_best = global_direction*(factor*global_distance)
+
+            new_velocity = (j
+                            #+ (1-tend_to_global)*velocity_to_particle_rbest
+                            +(1-tend_to_global)*velocity_to_particle_best 
+                            + (tend_to_global)*velocity_to_global_best
+            )
+            new_pos = new_velocity
+
             new_position.append(new_pos)
             self.last_update[i][particle_i] = new_pos
+
+
+            self.last_particle_best[particle_i] = particle_best
+            self.last_tend_to_global[particle_i] = tend_to_global
+            self.last_step_size[particle_i] = exploration_step_size
         return new_position
     
     def next_particle(self):
-        self.current_particle_i = (self.current_particle_i + 1) % self.particles_n
+
+        for i in range(self.particles_n):
+            self.current_particle_i = (self.current_particle_i + 1) % self.particles_n #increase by one untile reached available
+            if self.current_particle_i not in self.blacklist: break
 
 # Replace the configuration section
 args = parse_arguments()
@@ -118,8 +218,8 @@ system_reset_done = False
 
 
 # General Configuration Settigns
-sample_interval = 30# sample interval seconds
-benchmark_iteration_time = sample_interval*40 # how long each iteration should take
+sample_interval = 5# sample interval seconds
+benchmark_iteration_time = sample_interval*120 # how long each iteration should take
 
 max_temp = 66         # Will stop if temperature reaches or exceeds this value
 max_allowed_voltage = 1300
@@ -136,7 +236,7 @@ max_vr_temp = 90  # Maximum allowed voltage regulator temperature
 # use_optimiser = True
 # n_particles = 5 
 
-use_optimiser = True
+use_optimiser = False
 n_particles = 4
 
 
@@ -148,7 +248,7 @@ ps_optimiser= particle_swarm(n_particles,convergence_factor,particle_inputs,pari
 
 # Cost Function Settings
 # target
-optimisation_target = "hashrate_efficiancy"
+optimisation_target = "hashrate"
 
 # only used for some settings of optimisation_target
 # this is optimised for first, then another thing is optimised
