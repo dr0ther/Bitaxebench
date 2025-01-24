@@ -81,10 +81,10 @@ parametrizes the above function with your benchmark data  **it supports old data
 the program will output somthing like
 ```
 Learned voltage and temperature penalty parameters
-Vmin = p * (F * k + c )
+Voltage penalty p * (F * k + c )
 p=0.36 k=0.76289 c=797.56
 
-p * (T0 - (V * k + c))
+Temp penalty p * (T0 - (V * k + c))
 p=-0.13258 k=0.093341 c=797.56
 
 T0=75.0

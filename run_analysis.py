@@ -66,9 +66,9 @@ OPT.reparametrize_vpower(best_hist)
 
 
 print("\nLearned voltage and temperature penalty parameters")
-print('Vmin = p * (F * k + c )')
+print('Voltage penalty p * (F * k + c )')
 print(f"p={OPT.vpower:.5} k={OPT.k_fvmult:.5} c={OPT.k_fvoffset:.5}")
-print('\np * (T0 - (V * k + c))')
+print('\nTemp penalty  p * (T0 - (V * k + c))')
 print(f"p={OPT.tpower:.5} k={OPT.k_tmult:.5} c={OPT.k_fvoffset:.5}")
 print(f'\nT0={float(OPT.t0):.5}')
 
