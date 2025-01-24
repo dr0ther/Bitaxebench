@@ -72,9 +72,9 @@ temperature is dependant on vcore
 plotly pandas matplotlib requried for graphs\
 the code 
 ```bash 
-python run_analysis.py
+python run_analysis.py filename
 ``` 
-parametrizes the above function
+parametrizes the above function with your benchmark data  **it supports old data** you dont need to rerun you benchmarks
 
 
 ### Interpretting output
@@ -123,6 +123,14 @@ will display the following
 ![Example](/data/example_plot.png)
 
 this shows the learned model and the best parts
+
+
+### Model limitations
+the model fails in various aspects as there are many assumptions that are baked in
+for instance t0 > 75 
+
+
+
 
 ## Prerequisites
 
