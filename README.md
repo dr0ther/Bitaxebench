@@ -16,11 +16,7 @@ A Python-based benchmarking tool for optimizing Bitaxe mining performance by tes
 - Automatic saving of benchmark results
 - Graceful shutdown with best settings retention
 - Docker support for easy deployment
-- Particle swarm optimisation
-- Easy to implemnt cost functions
-- Stable temps before sampling
-- Independant hashrate samples only
-
+- Modeling of Hashrate equation
 
 ## Formalising Hashrate Optimisation
 the goal is to maximise hashrate, well what makes hashrate? 
