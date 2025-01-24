@@ -62,9 +62,24 @@ this results in a complicated equation\
 `Hashrate = E(H) * Temp_penalty * Vmin_penalty`\
 `         = E(H) * sig(T0-T) * sig(Vmin-Vcore)`
 
+hashrate is dependant on 
+1. temperature difference from current to overheat
+2. minimum required voltage for a frequncy
+3. difference of voltage to volatage minimum
+4. expected hashrate
+
+`T = Vcore * k + c`\
+temperature is dependant on 
+1. vcore
+
+
 ### **Code**
 plotly pandas matplotlib requried for graphs\
-the code `run_analysis.py` parametrizes the above function a
+the code 
+```bash 
+python run_analysis.py
+``` 
+parametrizes the above function
 
 
 ### Interpretting output
@@ -105,7 +120,10 @@ it is estimating the maximum it may be good to try that combination
 
 
 ### **Graph**
-`run_analysis.py example` will display the following 
+```bash
+python run_analysis.py example
+``` 
+will display the following 
 
 ![Example](/data/example_plot.png)
 
