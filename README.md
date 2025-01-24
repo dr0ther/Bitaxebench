@@ -44,7 +44,7 @@ if we dont have enough vcore for a frequency we cant use it\
 
 Penalty function I chose sigmoid as it has a gradient.\
 `sigmoid = 1/(1+e^-x) = sig(x)`\
-rather than a step function changing from 0-> for some value x
+rather than a step function changing from 0-> for some value x, it is not a instantanious transition
 
 
 
