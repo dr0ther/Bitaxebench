@@ -278,7 +278,14 @@ class parametrized_model():
 
         penalty_v = 1/(1+e_approx**(self.vpower*(vmin-vcore)))
         penalty_t = 1/(1+e_approx**(self.tpower*(self.t0-T)))
+        
+        if self.vpower==0:
+            penalty_v = 1
+        if self.tpower==0:
+            penalty_t = 1
 
+        
+        
         Hashrate = self.small_cores/1000 * (frequency  * penalty_t * penalty_v)
         return Hashrate,T,penalty_v,penalty_t
 
