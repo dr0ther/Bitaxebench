@@ -3,7 +3,7 @@
 A Python-based benchmarking tool for optimizing Bitaxe mining performance by testing different voltage and frequency combinations while monitoring hashrate, temperature, and power efficiency.
 
 ## Optimal benchmarking
-This Program helps find optimal benchmarking settings weather you have done many runs already or if you want to have less iterations before knowing the maximum this program will analyze your Benchmarking hostory and give you the best location to next test
+This Program helps find optimal benchmarking settings weather you have done many runs already or if you want to have less iterations before knowing the maximum this program will analyze your benchmarking history and give you the best location to next test
 ![Example](/data/plot_example2.png)
 
 ## Convergence
