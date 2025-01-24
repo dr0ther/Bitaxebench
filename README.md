@@ -2,14 +2,14 @@
 
 A Python-based benchmarking tool for optimizing Bitaxe mining performance by testing different voltage and frequency combinations while monitoring hashrate, temperature, and power efficiency.
 
-## Credits
-- `Whitey Cookie`
-- `mv777`
-- `shufps`
+## Optimal benchmarking
+This Program helps find optimal benchmarking settings weather you have done many runs already or if you want to have less iterations before knowing the maximum this program will analyze your Benchmarking hostory and give you the best location to next test
+![Example](/data/plot_example2.png)
 
+## Convergence
+TODO
 
 ## Features
-
 - Automated benchmarking of different voltage/frequency combinations
 - Temperature monitoring and safety cutoffs
 - Power efficiency calculations (J/TH)
@@ -116,13 +116,8 @@ it is estimating the maximum it may be good to try that combination
 
 ### **Graph**
 ```bash
-python run_analysis.py example
+python run_analysis.py <bitaxe_ip>
 ``` 
-will display the following 
-
-![Example](/data/plot_example.png)
-
-this shows the learned model and the best parts
 
 
 ### Model limitations
@@ -236,10 +231,8 @@ The benchmark results are saved to `bitaxe_benchmark_results.json`, containing:
 
 The tool follows this process:
 1. Starts with user-specified or default voltage/frequency
-2. always find stable temp before starting benchmark sample
-3. Uses PSO algorithom with a Cost function to optimise a numeric goal e.g hashrate or efficiency
-4. Records and ranks all successful configurations
-5. Automatically applies the best performing stable settings
+2. Records and ranks all successful configurations
+3. Automatically applies the best performing stable settings
 
 ## Todo 
 * add Shufps test stratum server for the same jobs and allowing lower pool diff reducing benchmarking time and hashrate variance
@@ -250,9 +243,6 @@ The tool follows this process:
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 
-
-
-
 ## License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
@@ -260,3 +250,8 @@ This project is licensed under the GNU General Public License v3.0 - see the [LI
 ## Disclaimer
 
 Please use this tool responsibly. Overclocking and voltage modifications can potentially damage your hardware if not done carefully. Always ensure proper cooling and monitor your device during benchmarking.
+
+## Credits
+- `Whitey Cookie`
+- `mv777`
+- `shufps`
