@@ -65,8 +65,7 @@ hashrate is dependant on
 4. expected hashrate
 
 `T = Vcore * k + c`\
-temperature is dependant on 
-1. vcore
+temperature is dependant on vcore
 
 
 ### **Code**
