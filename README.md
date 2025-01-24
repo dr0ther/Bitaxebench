@@ -120,7 +120,7 @@ python run_analysis.py example
 ``` 
 will display the following 
 
-![Example](/data/example_plot.png)
+![Example](/data/plot_example.png)
 
 this shows the learned model and the best parts
 
