@@ -168,4 +168,4 @@ cython_debug/
 ._*
 
 # Benchmark results
-*benchmark_results*.json
+
