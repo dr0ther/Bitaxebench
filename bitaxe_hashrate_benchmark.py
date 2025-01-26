@@ -34,13 +34,13 @@ initial_voltage = args.voltage
 initial_frequency = args.frequency
 
 # Configuration
-voltage_increment = 25
+voltage_increment =25
 frequency_increment = 25
-benchmark_time = 1200   # 20 minutes benchmark time
-sample_interval = 5   # 30 seconds sample interval
+benchmark_time = 60   # 20 minutes benchmark time
+sample_interval = 3   # 30 seconds sample interval
 max_temp = 75         # Will stop if temperature reaches or exceeds this value
-max_allowed_voltage = 1400
-max_allowed_frequency = 1200
+max_allowed_voltage = 1300
+max_allowed_frequency = 650
 max_vr_temp = 90  # Maximum allowed voltage regulator temperature
 
 # Add these variables to the global configuration section
@@ -85,6 +85,7 @@ def fetch_default_settings():
         default_frequency = 500
         small_core_count = 0
         asic_count = 0
+    return {'v':default_voltage,'f':default_frequency,'cores':small_core_count,'chips':asic_count}
 
 # Add a global flag to track whether the system has already been reset
 system_reset_done = False
@@ -217,18 +218,30 @@ def benchmark_iteration(core_voltage, frequency):
     if hash_rates and temperatures and power_consumptions:
         # Remove 3 highest and 3 lowest hashrates in case of outliers
         sorted_hashrates = sorted(hash_rates)
-        trimmed_hashrates = sorted_hashrates[3:-3]  # Remove first 3 and last 3 elements
-        average_hashrate = sum(trimmed_hashrates) / len(trimmed_hashrates)
-        
-        average_temperature = sum(temperatures) / len(temperatures)
-        average_power = sum(power_consumptions) / len(power_consumptions)
+        #trimmed_hashrates = sorted_hashrates[3:-3] 
+        vals = 0
+        ts = 0
+        hrs = 0
+        ps = 0
+        for i,h in enumerate(hash_rates):
+            if h > 0:
+                ts+=temperatures[i]
+                ps+=power_consumptions[i]
+                hrs+=hash_rates[i]
+                vals +=1
+
+        if vals == 0: vals = 1
+        average_hashrate = hrs / vals
+        average_temperature = ts / vals
+        average_power = ps / vals
         
         # Add protection against zero hashrate
         if average_hashrate > 0:
             efficiency_jth = average_power / (average_hashrate / 1_000)
         else:
             print(RED + "Warning: Zero hashrate detected, skipping efficiency calculation" + RESET)
-            return None, None, None, False
+            #we want this data
+            return average_hashrate, average_temperature, 0, False
         
         # Calculate if hashrate is within 8% of expected
         hashrate_within_tolerance = (average_hashrate >= expected_hashrate * 0.92)
@@ -269,112 +282,113 @@ def reset_to_best_setting():
     
     restart_system()
 
-# Main benchmarking process
-try:
-    fetch_default_settings()
-    
-    # Add disclaimer
-    print(RED + "\nDISCLAIMER:" + RESET)
-    print("This tool will stress test your Bitaxe by running it at various voltages and frequencies.")
-    print("While safeguards are in place, running hardware outside of standard parameters carries inherent risks.")
-    print("Use this tool at your own risk. The author(s) are not responsible for any damage to your hardware.")
-    print("\nNOTE: Ambient temperature significantly affects these results. The optimal settings found may not")
-    print("work well if room temperature changes substantially. Re-run the benchmark if conditions change.\n")
-    
-    current_voltage = initial_voltage
-    current_frequency = initial_frequency
-    
-    while current_voltage <= max_allowed_voltage and current_frequency <= max_allowed_frequency:
-        set_system_settings(current_voltage, current_frequency)
-        avg_hashrate, avg_temp, efficiency_jth, hashrate_ok = benchmark_iteration(current_voltage, current_frequency)
+if __name__ == "__main__":
+#   Main benchmarking process
+    try:
+        fetch_default_settings()
         
-        if avg_hashrate is not None and avg_temp is not None and efficiency_jth is not None:
-            results.append({
-                "coreVoltage": current_voltage,
-                "frequency": current_frequency,
-                "averageHashRate": avg_hashrate,
-                "averageTemperature": avg_temp,
-                "efficiencyJTH": efficiency_jth
-            })
+        # Add disclaimer
+        print(RED + "\nDISCLAIMER:" + RESET)
+        print("This tool will stress test your Bitaxe by running it at various voltages and frequencies.")
+        print("While safeguards are in place, running hardware outside of standard parameters carries inherent risks.")
+        print("Use this tool at your own risk. The author(s) are not responsible for any damage to your hardware.")
+        print("\nNOTE: Ambient temperature significantly affects these results. The optimal settings found may not")
+        print("work well if room temperature changes substantially. Re-run the benchmark if conditions change.\n")
+        
+        current_voltage = initial_voltage
+        current_frequency = initial_frequency
+        
+        while current_voltage <= max_allowed_voltage and current_frequency <= max_allowed_frequency:
+            set_system_settings(current_voltage, current_frequency)
+            avg_hashrate, avg_temp, efficiency_jth, hashrate_ok = benchmark_iteration(current_voltage, current_frequency)
             
-            if hashrate_ok:
-                # If hashrate is good, try increasing frequency
-                if current_frequency + frequency_increment <= max_allowed_frequency:
-                    current_frequency += frequency_increment
+            if avg_hashrate is not None and avg_temp is not None and efficiency_jth is not None:
+                results.append({
+                    "coreVoltage": current_voltage,
+                    "frequency": current_frequency,
+                    "averageHashRate": avg_hashrate,
+                    "averageTemperature": avg_temp,
+                    "efficiencyJTH": efficiency_jth
+                })
+                
+                if hashrate_ok:
+                    # If hashrate is good, try increasing frequency
+                    if current_frequency + frequency_increment <= max_allowed_frequency:
+                        current_frequency += frequency_increment
+                    else:
+                        break  # We've reached max frequency with good results
                 else:
-                    break  # We've reached max frequency with good results
+                    # If hashrate is not good, go back one frequency step and increase voltage
+                    if current_voltage + voltage_increment <= max_allowed_voltage:
+                        current_voltage += voltage_increment
+                        current_frequency -= frequency_increment  # Go back to one frequency step and retry
+                        print(YELLOW + f"Hashrate to low compared to expected. Decreasing frequency to {current_frequency}MHz and increasing voltage to {current_voltage}mV" + RESET)
+                    else:
+                        break  # We've reached max voltage without good results
             else:
-                # If hashrate is not good, go back one frequency step and increase voltage
-                if current_voltage + voltage_increment <= max_allowed_voltage:
-                    current_voltage += voltage_increment
-                    current_frequency -= frequency_increment  # Go back to one frequency step and retry
-                    print(YELLOW + f"Hashrate to low compared to expected. Decreasing frequency to {current_frequency}MHz and increasing voltage to {current_voltage}mV" + RESET)
-                else:
-                    break  # We've reached max voltage without good results
-        else:
-            # If we hit thermal limits or other issues, we've found the highest safe settings
-            print(GREEN + "Reached thermal or stability limits. Stopping further testing." + RESET)
-            break  # Stop testing higher values
+                # If we hit thermal limits or other issues, we've found the highest safe settings
+                print(GREEN + "Reached thermal or stability limits. Stopping further testing." + RESET)
+                break  # Stop testing higher values
 
-        save_results()
+            save_results()
 
-except Exception as e:
-    print(RED + f"An unexpected error occurred: {e}" + RESET)
-    if results:
-        reset_to_best_setting()
-        save_results()
-    else:
-        print(YELLOW + "No valid benchmarking results found. Applying predefined default settings." + RESET)
-        set_system_settings(default_voltage, default_frequency)
-        restart_system()
-finally:
-    if not system_reset_done:
+    except Exception as e:
+        print(RED + f"An unexpected error occurred: {e}" + RESET)
         if results:
             reset_to_best_setting()
             save_results()
-            print(GREEN + "Bitaxe reset to best or default settings and results saved." + RESET)
         else:
             print(YELLOW + "No valid benchmarking results found. Applying predefined default settings." + RESET)
             set_system_settings(default_voltage, default_frequency)
             restart_system()
-        system_reset_done = True
+    finally:
+        if not system_reset_done:
+            if results:
+                reset_to_best_setting()
+                save_results()
+                print(GREEN + "Bitaxe reset to best or default settings and results saved." + RESET)
+            else:
+                print(YELLOW + "No valid benchmarking results found. Applying predefined default settings." + RESET)
+                set_system_settings(default_voltage, default_frequency)
+                restart_system()
+            system_reset_done = True
 
-    # Print results summary only if we have results
-    if results:
-        # Sort results by averageHashRate in descending order and get the top 5
-        top_5_results = sorted(results, key=lambda x: x["averageHashRate"], reverse=True)[:5]
-        
-        # Create a dictionary containing all results and top performers
-        final_data = {
-            "all_results": results,
-            "top_performers": [
-                {
-                    "rank": i,
-                    "coreVoltage": result["coreVoltage"],
-                    "frequency": result["frequency"],
-                    "averageHashRate": result["averageHashRate"],
-                    "averageTemperature": result["averageTemperature"],
-                    "efficiencyJTH": result["efficiencyJTH"]
-                }
-                for i, result in enumerate(top_5_results, 1)
-            ]
-        }
-        
-        # Save the final data to JSON
-        ip_address = bitaxe_ip.replace('http://', '')
-        filename = f"bitaxe_benchmark_results_{ip_address}.json"
-        with open(filename, "w") as f:
-            json.dump(final_data, f, indent=4)
-        
-        print(GREEN + "Benchmarking completed." + RESET)
-        if top_5_results:
-            print(GREEN + "\nTop 5 Performing Settings:" + RESET)
-            for i, result in enumerate(top_5_results, 1):
-                print(GREEN + f"\nRank {i}:" + RESET)
-                print(GREEN + f"  Core Voltage: {result['coreVoltage']}mV" + RESET)
-                print(GREEN + f"  Frequency: {result['frequency']}MHz" + RESET)
-                print(GREEN + f"  Average Hashrate: {result['averageHashRate']:.2f} GH/s" + RESET)
-                print(GREEN + f"  Average Temperature: {result['averageTemperature']:.2f}°C" + RESET)
-                print(GREEN + f"  Efficiency: {result['efficiencyJTH']:.2f} J/TH" + RESET)
-        else:
-            print(RED + "No valid results were found during benchmarking." + RESET)
+        # Print results summary only if we have results
+        if results:
+            # Sort results by averageHashRate in descending order and get the top 5
+            top_5_results = sorted(results, key=lambda x: x["averageHashRate"], reverse=True)[:5]
+            
+            # Create a dictionary containing all results and top performers
+            final_data = {
+                "all_results": results,
+                "top_performers": [
+                    {
+                        "rank": i,
+                        "coreVoltage": result["coreVoltage"],
+                        "frequency": result["frequency"],
+                        "averageHashRate": result["averageHashRate"],
+                        "averageTemperature": result["averageTemperature"],
+                        "efficiencyJTH": result["efficiencyJTH"]
+                    }
+                    for i, result in enumerate(top_5_results, 1)
+                ]
+            }
+            
+            # Save the final data to JSON
+            ip_address = bitaxe_ip.replace('http://', '')
+            filename = f"bitaxe_benchmark_results_{ip_address}.json"
+            with open(filename, "w") as f:
+                json.dump(final_data, f, indent=4)
+            
+            print(GREEN + "Benchmarking completed." + RESET)
+            if top_5_results:
+                print(GREEN + "\nTop 5 Performing Settings:" + RESET)
+                for i, result in enumerate(top_5_results, 1):
+                    print(GREEN + f"\nRank {i}:" + RESET)
+                    print(GREEN + f"  Core Voltage: {result['coreVoltage']}mV" + RESET)
+                    print(GREEN + f"  Frequency: {result['frequency']}MHz" + RESET)
+                    print(GREEN + f"  Average Hashrate: {result['averageHashRate']:.2f} GH/s" + RESET)
+                    print(GREEN + f"  Average Temperature: {result['averageTemperature']:.2f}°C" + RESET)
+                    print(GREEN + f"  Efficiency: {result['efficiencyJTH']:.2f} J/TH" + RESET)
+            else:
+                print(RED + "No valid results were found during benchmarking." + RESET)
