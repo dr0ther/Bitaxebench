@@ -4,7 +4,8 @@ A Python-based benchmarking tool for optimizing Bitaxe mining performance by tes
 
 
 ## Research: Optimal benchmarking
-Not finished yet
+Not finished yet, analysis made
+todo integration with main program
 * [For Results of Optimising Hashrate](https://github.com/adammwest/Bitaxebench/blob/main/docs/opt_bench.md)
 * [For Model Usage](https://github.com/adammwest/Bitaxebench/blob/main/docs/opt_usage.md)
 
