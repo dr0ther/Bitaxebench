@@ -2,12 +2,12 @@
 
 A Python-based benchmarking tool for optimizing Bitaxe mining performance by testing different voltage and frequency combinations while monitoring hashrate, temperature, and power efficiency.
 
-## Optimal benchmarking
-This Program helps find optimal benchmarking settings weather you have done many runs already or if you want to have less iterations before knowing the maximum this program will analyze your benchmarking history and give you the best location to next test
-![Example](/data/plot_example2.png)
 
-## Convergence
-TODO
+## Research: Optimal benchmarking
+* [For Results of Optimising Hashrate]()
+* [For Model Usage]()
+
+
 
 ## Features
 - Automated benchmarking of different voltage/frequency combinations
@@ -17,114 +17,6 @@ TODO
 - Graceful shutdown with best settings retention
 - Docker support for easy deployment
 - Modeling of Hashrate equation
-
-## Formalising Hashrate Optimisation
-the goal is to maximise hashrate, well what makes hashrate? 
-
-### **Simple model**
-this is the simpliest form which is approximatly accurate\
-`Expected Hashrate = E(H) = frequency * cores`
-
-
-### **Penalties**
-there are penalties to this function we have temperature and voltage interactions
-
-1. High temps\
-if we have a high temperature we get less hashrate\
-`Temp_penalty = T0-tempurature` 
-
-
-2. Vcore min\
-if we dont have enough vcore for a frequency we cant use it\
-`Vmin_penalty = Vmin-Vcore`
-
-Penalty function I chose sigmoid as it has a gradient.\
-`sigmoid = 1/(1+e^-x) = sig(x)`\
-rather than a step function changing from 0-> for some value x, it is not a instantanious transition
-
-
-
-### **Relations**
-`vmin = k * freq`\
-vmin relates to the frequency high frequency requires more power 
-
-`T = k * vcore`\
-temperature increases when more power is transmitted to the chip
-
-`T0` T0 is the overheat temperature in my model it is static
-
-
-this results in a complicated equation\
-`Hashrate = E(H) * Temp_penalty * Vmin_penalty`\
-`         = E(H) * sig(T0-T) * sig(Vmin-Vcore)`
-
-hashrate is dependant on 
-1. temperature difference from current to overheat
-2. minimum required voltage for a frequncy
-3. difference of voltage to volatage minimum
-4. expected hashrate
-
-`T = Vcore * k + c`\
-temperature is dependant on vcore
-
-
-### **Code**
-plotly pandas matplotlib requried for graphs\
-the code 
-```bash 
-python run_analysis.py filename
-``` 
-parametrizes the above function with your benchmark data  **it supports old data** you dont need to rerun you benchmarks
-
-
-### Interpretting output
-the program will output somthing like
-```
-Learned voltage and temperature penalty parameters
-Voltage penalty p * (F * k + c )
-p=0.36 k=0.76289 c=797.56
-
-Temp penalty p * (T0 - (V * k + c))
-p=-0.13258 k=0.093341 c=797.56
-
-T0=75.0
-
-Errors
-Hashrate err =0.05073310330461451
-Temp err     =9.568037816170017
-
-The Best Positions
-Vcore Freq Hashrate
-    Type   V    F   H
-Benchmark  1203 508 649
-    Model  1270 600 671
-Plot saved to plot.png
-```
-
-
-1. The Errors 
-this section gives the model errors to the hashrate and temperature equations
-
-2. The Best Positions
-this is the most intresting section for the user 
-```
-    Model  1270 600 671
-```
-this says the model thinks vcore=1270 and freq=600 will result in hashrate=671\
-it is estimating the maximum it may be good to try that combination
-
-
-### **Graph**
-```bash
-python run_analysis.py <bitaxe_ip>
-``` 
-
-
-### Model limitations
-the model fails in various aspects as there are many assumptions that are baked in
-for instance t0 > 75 
-
-
 
 
 ## Prerequisites

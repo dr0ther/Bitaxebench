@@ -1,5 +1,6 @@
 import math
 import random
+import traceback
 import statistics
 import numpy as np
 import matplotlib.pyplot as plt
@@ -51,6 +52,9 @@ def linear_regression(X,Y):
     sum_Y = sum(Y)
     sum_XY = sum(X[i] * Y[i] for i in range(n))
     sum_X_squared = sum(X[i] ** 2 for i in range(n))
+    if (n * sum_X_squared == sum_X ** 2):
+        return 0, statistics.median(Y)
+    
     # Calculate slope (-p) and intercept (b)
     slope = (n * sum_XY - sum_X * sum_Y) / (n * sum_X_squared - sum_X ** 2)
     intercept = (sum_Y - slope * sum_X) / n
@@ -147,6 +151,7 @@ class parametrized_model():
         self.bounds = bounds
         self.step = 0
         self.small_cores = small_cores
+        self.is_trained = False
 
     def add_point(self,x,H,t,vcore_actual):
         self.history.append([x,H,t,vcore_actual])
@@ -186,8 +191,8 @@ class parametrized_model():
                     pbest_err = err
                     bests.append([vmin,p,err])
 
-                if err_per_v <= pbest_err:
-                    pbest_err = err_per_v
+                #if err_per_v <= pbest_err:
+                #    pbest_err = err_per_v
 
    
             best_min_val = min([i[2] for i in bests])
@@ -277,7 +282,8 @@ class parametrized_model():
         vmin = frequency*self.k_fvmult + self.k_fvoffset
 
         penalty_v = 1/(1+e_approx**(self.vpower*(vmin-vcore)))
-        penalty_t = 1/(1+e_approx**(self.tpower*(self.t0-T)))
+        penalty_t = 1
+        #penalty_t = 1/(1+e_approx**(self.tpower*(self.t0-T)))
         
         if self.vpower==0:
             penalty_v = 1
@@ -334,9 +340,586 @@ class parametrized_model():
             total_err += err
 
         return total_err/len(self.history)
+    
 
+    def reparametrize_model_hashrate_err(self,n,data):
+
+        #optimise history with respect to Hashrate error
+        min_err = 1000000
+        best_hist = []
+        best_T_hist = []
+        for _j,j in enumerate(self.history[:n]):
+            for i in self.history:
+                history = [i,j]
+                if _j==0:
+                    vcore_difference = i[0][0]!=j[0][0]
+                    if vcore_difference: 
+                        try:
+                            self.reparametrize_T_eqn(history)
+                            best_T_hist = [i,j]
+                        except ZeroDivisionError:
+                            # this occours in reparametrize T
+                            #print(i[0],j[0],"Z")
+                            pass
+                        except OverflowError:
+                            #print(i[0],j[0],"O")
+                            pass
+                        except ValueError:
+                            #print(i[0],j[0],"V")
+                            pass
+
+                if _j > 0:
+                    if best_T_hist:
+                        self.reparametrize_T_eqn(best_T_hist)
+                    else: 
+                        break
+                    
+                    try:    
+                        self.reparametrize_vmin_eqn(history)
+                        self.reparametrize_t0_eqn(history)
+                        self.reparametrize_vpower(history)
+                        hash_rate_err= 0
+                        
+                        for core,freq,temp,hashrate in data:
+                            ypred = self.model([core,freq])
+                            errH = abs(hashrate-ypred[0])
+                            errT = abs(temp-ypred[1])
+                            hash_rate_err+=errH+errT
+
+                        if hash_rate_err<min_err:
+                            min_err = hash_rate_err
+                            best_hist = [i,j]
+
+                        
+                        #print(i[0],j[0],hash_rate_err)
+                    except ZeroDivisionError:
+                        # this occours in reparametrize T
+                        #print(i[0],j[0],"Z")
+                        pass
+                    except OverflowError:
+                        #print(i[0],j[0],"O")
+                        pass
+                    except ValueError:
+                        #print(i[0],j[0],"V")
+                        pass
+          
+        if best_hist and best_T_hist: 
+            try:
+                self.reparametrize_T_eqn(best_T_hist)
+                self.reparametrize_vmin_eqn(best_hist)
+                self.reparametrize_t0_eqn(best_hist)
+                self.reparametrize_vpower(best_hist)
+                self.is_trained = True
+            except Exception as e:
+                print("model fail ",best_hist)
+                print(traceback.format_exc())
+        else:
+            print('no best hist')
+
+    def reparametrize_model_all(self):
+        try:
+            self.reparametrize_T_eqn(self.history)
+            self.reparametrize_vmin_eqn(self.history)
+            self.reparametrize_t0_eqn(self.history)
+            self.reparametrize_vpower(self.history)
+        except Exception as e:
+                print(traceback.format_exc())
+
+
+def sigmoid(x):
+    res = 0
+    try:
+        res = 1/(1+math.e**(-x))
+    except OverflowError:
+        pass
+    return res
+
+def dsigmoid(x):
+    return sigmoid(x)*(1-sigmoid(x))
+
+def eval_penalty(a,b,p):
+    return sigmoid(p*(a-b))
+    
+ERR_MAX = 999999999
+class parametrized_model2():
+    def __init__(self,small_cores):
+        self.vmin_lbound = 1000
+        self.vmin_hbound = 1400
+        self.vpower_lbound = 1
+        self.vpower_hbound = 500
+        self.fpower_lbound = -500
+        self.fpower_hbound = -1
+        self.fmax_lbound = 500
+        self.fmax_hbound = 800
+        self.small_cores = small_cores
+        self.history = []
+        self.chips =1
+        self.hint_counter = 0
+
+    def add_point(self,x,H,t,eff):
+        if H >150:
+            self.history.append([x,H,t,eff])
+
+
+
+    def reparm_vmin(self,history,linear_reg_max,use_f=False):
+        #calulate vmin
+        y_vmin = []
+        x_fs = []
+        errs =[]
+        for h in history:
+            V = h[0][0]
+            F = h[0][1]
+            
+            best_err = ERR_MAX
+            best_vmin = -1
+            
+            for vmin in range(self.vmin_lbound,self.vmin_hbound):
+                
+                hashrate_est = self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)
+                if use_f:
+                    fmax = F*self.fmax_term0 + V* self.fmax_term1 + self.fmax_const
+                    hashrate_est =self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)*eval_penalty(F,fmax,self.fpower)
+                err = abs(h[1]-hashrate_est)
+                
+                if err<best_err:
+                    
+                    best_vmin = vmin
+                    best_err = err
+
+            if best_vmin != -1:
+                x_fs.append(F)
+                y_vmin.append(best_vmin)
+                errs.append(best_err)
+        
+        if len(x_fs) > 3:
+            #print(x_fs,y_vmin)
+            sz = len(x_fs)
+            x_fs = [x for _,x in sorted(zip(errs,x_fs))][:min(sz,linear_reg_max)]
+            y_vmin = [x for _,x in sorted(zip(errs,y_vmin))][:min(sz,linear_reg_max)]
+            
+            m,c = linear_regression(x_fs,y_vmin)
+            self.vmin_mult_term = m
+            self.vmin_const_term = c 
+            #print("new vmin terms",self.vmin_mult_term,self.vmin_const_term,self.calc_err(history))
+
+
+
+            all_good = True
+        else:
+            all_good = False
+
+        return all_good,self.calc_err(self.history)
+
+
+    def reparam_fmax(self,history,linear_reg_max):
+        y_fmax = []
+        x_fs = []
+        x_vs = []
+        errs = []
+            
+            
+        for h in history:
+            best_err = ERR_MAX
+            best_fmax = -1
+            V = h[0][0]
+            F = h[0][1]
+            for fmax in range(self.fmax_lbound,self.fmax_hbound):
+                
+                vmin = F*self.vmin_mult_term+self.vmin_const_term
+                est_1 = self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)
+                hashrate_est = est_1*eval_penalty(F,fmax,self.fpower)
+                #print(V,F,fmax,est_1,hashrate_est,h[1])
+                err = abs(h[1]-hashrate_est)
+                
+                if err<best_err:
+                    
+                    best_err = err
+                    best_fmax = fmax
+
+            if best_fmax != -1:
+                #print(F,V,best_fmax,best_err)
+                x_fs.append(F)
+                x_vs.append(V)
+                y_fmax.append(best_fmax)
+                errs.append(best_err)
+        
+        if len(x_fs) > 3:
+            sz = len(x_fs)
+            x_fs = [x for _,x in sorted(zip(errs,x_fs))][:min(sz,linear_reg_max)]
+            x_vs = [x for _,x in sorted(zip(errs,x_vs))][:min(sz,linear_reg_max)]
+            y_fmax = [x for _,x in sorted(zip(errs,y_fmax))][:min(sz,linear_reg_max)]
+
+            fm,cf = linear_regression(x_fs,y_fmax)
+            vm,cv = linear_regression(x_vs,y_fmax)
+
+            xs = [0.5*fm*f+0.5*vm*v for f,v in zip(x_fs,x_vs)]
+            m,c = linear_regression(xs,y_fmax)
+            
+            self.fmax_term0 = m*fm*0.5
+            self.fmax_term1 = m*vm*0.5
+            self.fmax_const = c
+            #print([[f for f,v in zip(x_fs,x_vs)]])
+            #print([[fm*f+cf for f,v in zip(x_fs,x_vs)]])
+            #print([[vm*v+cv for f,v in zip(x_fs,x_vs)]])
+            # print([[m*0.5*fm*f+m*0.5*vm*v+c for f,v in zip(x_fs,x_vs)]])
+            #print(y_fmax)
+            # print(self.calc_err(self.history))
+            
+            #print("new f term",self.fmax_term0,self.fmax_term1,self.fmax_const,self.calc_err(self.history))
+
+            
+            all_good = True
+        else:
+            all_good = False
+
+        return all_good,self.calc_err(self.history)
+
+
+    def reparam_vpower(self,history,use_f):
+
+        best_err = ERR_MAX
+        best_vpower = -1
+        
+        for vpower in range(self.vpower_lbound,self.vpower_hbound):
+            vpower/=1000
+            err = 0
+            for h in history:
+                V = h[0][0]
+                F = h[0][1]
+                vmin = F*self.vmin_mult_term+self.vmin_const_term
+                hashrate_est =self.eval_Expected_H(h[0])*eval_penalty(V,vmin,vpower)
+                if use_f:
+                    fmax = F*self.fmax_term0 + V* self.fmax_term1 + self.fmax_const
+                    hashrate_est =self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)*eval_penalty(F,fmax,self.fpower)
+                err += abs(h[1]-hashrate_est)
+
+            if err<best_err:
+                best_vpower = vpower
+                best_err = err
+
+        if best_vpower != -1:
+            self.vmin_power = best_vpower
+            #print("new vpower",self.vmin_power,self.calc_err(self.history))
+            all_good = True
+        else:
+            all_good = False
+        return all_good,self.calc_err(self.history)
+
+
+    def reparam_fpower(self,history):
+        best_err = ERR_MAX
+        best_fpower = -1
+        
+        for fpower in range(self.fpower_lbound,self.fpower_hbound):
+            fpower /= 1000
+            err = 0
+            for h in history:
+                V = h[0][0]
+                F = h[0][1]
+                vmin = F*self.vmin_mult_term + self.vmin_const_term
+                fmax = F*self.fmax_term0 + V* self.fmax_term1 + self.fmax_const
+                hashrate_est =self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)*eval_penalty(F,fmax,fpower)
+                err += abs(h[1]-hashrate_est)
+
+            if err<best_err:
+                best_fpower = fpower
+                best_err = err
+
+        if best_fpower != -1:
+            self.fpower = best_fpower
+            #print("new fpower",best_fpower,self.calc_err(self.history))
+            all_good = True
+        else:
+            all_good = False
+        return all_good,self.calc_err(self.history)
+    
+
+
+
+    def reparam_err(self,history):
+
+        xs = []
+        x_fs = []
+        x_vs = []
+        ys = []
+        for h in history:
+            V = h[0][0]
+            F = h[0][1]
+            vmin = F*self.vmin_mult_term+self.vmin_const_term
+            fmax = F*self.fmax_term0 + V* self.fmax_term1 + self.fmax_const
+            hashrate_est = self.eval_Expected_H(h[0])*eval_penalty(V,vmin,self.vmin_power)*eval_penalty(F,fmax,self.fpower)
+            xs.append(hashrate_est)
+            ys.append(h[1])
+            x_fs.append(F)
+            x_vs.append(V)
+        
+        if len(xs) > 3:
+            sz = len(xs)
+            m,c = linear_regression(xs,ys)
+            if m < 0:
+                m = 1
+                c = 0
+            # hashratye_est*m + c = hashrate
+
+            self.err_m =  m
+            self.err_c =  c
+            
+            all_good = True
+        else:
+            all_good = False
+
+        return all_good,self.calc_err(self.history)
+
+    def assumption_detect(self):
+        "inverse correlation detection freq should always equal"
+        xs = []
+        xfs = []
+        xvs = []
+        ys = []
+        for h in self.history:
+            xs.append(h[0][1]*h[0][0])
+            xfs.append(h[0][1])
+            xvs.append(h[0][0])
+            ys.append(h[1])
+
+        
+        m,c = linear_regression(xs,ys)
+        mf,c = linear_regression(xfs,ys)
+        mv,c = linear_regression(xvs,ys)
+        assumptions =  1> m >0 and -1 < mf < 0 and mv > 1.5
+        return assumptions
+
+
+            
+    def build_partial(self,history): 
+        all_good = True
+        sorted_n = 5
+        best_data_points = []
+        current_best_err = self.calc_err(self.history)
+        last_point = self.history[-1]
+
+        for i,h in enumerate(history[:-1]):
+            h2 = last_point
+            j = len(history)-1
+            if h!=h2:
+                h3 = history[(i+len(history)//2) % len(history)]
+                h4 = history[(j+len(history)//2) % len(history)]
+                tmp = [h,h2,h3,h4]
+                all_good,best_score = self.reparm_vmin(tmp,sorted_n,False)
+                if all_good:
+                    all_good,best_score = self.reparam_vpower(tmp,False)
+                if all_good:
+                    all_good,best_score = self.reparam_err(tmp)
+
+                assumption = self.assumption_detect()
+                if best_score< current_best_err and all_good and assumption:
+                    current_best_err = best_score
+                    best_data_points = tmp
+
+        if best_data_points != []:
+            self.best_data_points = best_data_points
+
+        all_good,best_score = self.reparm_vmin(self.best_data_points,sorted_n,False)
+        if all_good:
+            all_good,best_score = self.reparam_vpower(self.best_data_points,False)
+        if all_good:
+            all_good,best_score = self.reparam_err(tmp)
+ 
+
+        if all_good:
+            self.is_trained = True
+        else:
+            self.is_trained = False
+
+
+
+
+    def build(self,history):
+        #Sanity test
+        self.vmin_power = 1
+        self.fpower = 1
+        self.vmin_const_term = 10
+        self.fmax_const = 10
+        self.fmax_term0 = 0
+        self.fmax_term1 = 0
+        self.vmin_mult_term =0
+        self.err_c = 0
+        self.err_m = 1
+
+        all_good = True
+
+        sorted_n = 5
+        best_match = 1000
+        best_data_points = []
+
+
+        #deterministic again
+        for i,h in enumerate(history):
+            for j,h2 in enumerate(history):
+                if h!=h2:
+                    h3 = history[(i+len(history)//2) % len(history)]
+                    h4 = history[(j+len(history)//2) % len(history)]
+                    tmp = [h,h2,h3,h4]
+                    all_good,best_score = self.reparm_vmin(tmp,sorted_n,False)
+                    if all_good:
+                        all_good,best_score = self.reparam_vpower(tmp,False)
+                    if all_good:
+                        all_good,best_score = self.reparam_err(tmp)
+
+                    assumption = self.assumption_detect()
+                    if best_score< best_match and all_good and assumption:
+                        best_match = best_score
+                        best_data_points = tmp
+
+        self.best_data_points = best_data_points
+
+
+        all_good,best_score = self.reparm_vmin(best_data_points,sorted_n,False)
+        if all_good:
+            all_good,best_score = self.reparam_vpower(best_data_points,False)
+        if all_good:
+            all_good,best_score = self.reparam_err(tmp)
+ 
+
+        if all_good:
+            self.is_trained = True
+        else:
+            self.is_trained = False
+            #raise ValueError("not trained")
+
+        
+    def get_history_best(self):
+        hashrate_max = 0
+        best_pos = []
+        for h in self.history:
+            if h[1] > hashrate_max:
+                best_pos = h[0]
+                hashrate_max = h[1]
+        return best_pos,hashrate_max
+
+
+
+    def maximise_hashrate_eqn(self,bounds,hint=False):
+        pos = []
+        scores_per_freq = []
+        best = 0
+
+
+        attempts = []
+        for frequency in range(bounds[1][0],bounds[1][1],10):
+            for vcore in range(bounds[0][0],bounds[0][1],10):
+                pos = [vcore,frequency]
+                if pos not in [h[0] for h in self.history]:
+                    attempts.append([vcore,frequency])
+
+        scores_per_freq = {}
+        for vcore,frequency in attempts:
+            if scores_per_freq.get(frequency,None) is None:
+                scores_per_freq.update({frequency:[]})
+
+            scores_per_freq[frequency].append(self.evaluate([vcore,frequency]))
+
+        for key in scores_per_freq:
+            filtered = sorted([f for f in scores_per_freq[key]])[-3:] #top3
+            mean = 0
+            if len(filtered)>1:
+                mean = statistics.mean(filtered)
+            scores_per_freq.update({key:mean})
+
+        best_freq = max(scores_per_freq, key=scores_per_freq.get)
+        
+        err = self.calc_err(self.history)
+        best_pos = -1
+        if err<200:
+            for pos in attempts:
+             
+                    eval = self.evaluate(pos)
+                    if eval > best:
+                        best = eval
+                        best_pos = pos
+        else:
+            best_poss = []
+            for pos in attempts:
+                if pos[1]==best_freq:
+                    best_poss.append(pos)
+
+            if best_poss:
+                idx =int(len(best_poss)*random.random())
+                best_pos = best_poss[idx]
+
+
+
+                
+
+        if best_pos ==-1:
+            # entropy source
+                idx =int(len(attempts)*random.random())
+                best_pos = attempts[idx]
+
+
+        # if not hint:
+
+            
+        # else:
+        #         self.hint_counter +=1
+        #         opts = [0.125,0.375,0.625,0.875]
+
+        #         idx = int(opts[self.hint_counter%len(opts)]*len(attempts))
+        #         best_pos = attempts[idx]
+
+        
+
+        
+        # #detect statics 
+        # if len(self.history) > 2:
+        #     static_v = statistics.stdev([h[0][0] for h in self.history[-3:]])
+        #     static_f =  statistics.stdev([h[0][1] for h in self.history[-3:]])
+        #     hashrate_m,hc = linear_regression([0,1,2],[h[1] for h in self.history[-3:]])
+        #     mv,hc = linear_regression([0,1,2],[h[0][0] for h in self.history[-3:]])
+        #     mf,hc = linear_regression([0,1,2],[h[0][1] for h in self.history[-3:]])
+        #     print(int(static_f),int(static_v),mv,mf,hashrate_m)
+
+        return best_pos
 
     
+
+    def eval_Expected_H(self,x):
+        F = x[1]
+        expectation_hashrate = self.small_cores*self.chips*F
+        return expectation_hashrate/1000
+
+
+
+    def evaluate(self,x):
+        F = x[1]
+        V = x[0]
+        
+        vmin = (F*self.vmin_mult_term+self.vmin_const_term)
+        penalty_vmin = eval_penalty(V,vmin,self.vmin_power)
+
+        fmax = F*self.fmax_term0 + V* self.fmax_term1 + self.fmax_const
+        penalty_f = eval_penalty(F,fmax,self.fpower)
+        #print(penalty_f,penalty_vmin)
+
+        hashrate_est = self.eval_Expected_H(x)*penalty_vmin*penalty_f
+
+        hashrate_est = hashrate_est*self.err_m + self.err_c
+        return hashrate_est
+        
+
+    def calc_err(self,history):
+        total_err = 0
+        for h in history:
+            # MAE
+            err = abs(h[1]-self.evaluate(h[0]))
+            total_err += err
+
+        if len(history) == 0:
+            history = [0]
+        return total_err/len(history)
+
+
 
 
 
