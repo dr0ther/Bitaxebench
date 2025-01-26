@@ -3,7 +3,7 @@ import argparse
 import sys
 import pandas as pd # TODO: REMOVE ME make optional
 
-from model import parametrized_model
+from model import parametrized_model,parametrized_model2
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='Bitaxe Hashrate Benchmark Tool')
@@ -28,86 +28,32 @@ with open(root_path) as data:
             print("cant read file")
             raise ValueError("json not in expected form")
 
+model = parametrized_model2(1276)
 
-
-OPT = parametrized_model([[1000,1350],[450,610]],1276)
-
-
-data = df[['coreVoltage','frequency','averageTemperature','averageHashRate']].values.tolist()
+data = df[['coreVoltage','frequency','averageTemperature','averageHashRate','efficiencyJTH']].values.tolist()
 for row in data:
-    core,freq,temp,hashrate = row
-    OPT.add_point([core,freq],hashrate,temp,core)
+    core,freq,temp,hashrate,eff = row
+    model.add_point([core,freq],hashrate,temp,eff)
 
 # filter
 df = df.loc[df.coreVoltage<1350,:]
 
+model.build(model.history)
+print(model.is_trained)
 
-
-#optimise history with respect to Hashrate error
-best_hist = []
-min_err = 1000000
-best_hist = OPT.history
-for i in OPT.history:
-    for j in OPT.history:
-        if i != j:
-            history = [i,j]
-            try:
-                OPT.reparametrize_T_eqn(history)
-                OPT.reparametrize_vmin_eqn(history)
-                OPT.reparametrize_t0_eqn(history)
-                OPT.reparametrize_vpower(history)
-                hash_rate_err= 0
-                for core,freq,temp,hashrate in data:
-                    ypred = OPT.model([core,freq])
-                    errH = abs(hashrate-ypred[0])
-                    errT = abs(temp-ypred[1])
-                    hash_rate_err+=errH
-
-                if hash_rate_err<min_err:
-                    min_err = hash_rate_err
-                    best_hist = [i,j]
-            except ZeroDivisionError:
-                # this occours in reparametrize T
-                pass
-
-OPT.reparametrize_T_eqn(best_hist)
-OPT.reparametrize_vmin_eqn(best_hist)
-OPT.reparametrize_t0_eqn(best_hist)
-OPT.reparametrize_vpower(best_hist)
-#OPT.k_fvoffset=0.0
-#OPT.k_fvmult = 0.0
-#OPT.k_tmult = 0.0
-#OPT.k_toffset =0.0
-#OPT.tpower = 0.0
-#OPT.vpower = 0.0
-
-
-print("\nLearned voltage and temperature penalty parameters")
-print('Voltage penalty p * ((F * k + c) - V)')
-print(f"p={OPT.vpower:.5} k={OPT.k_fvmult:.5} c={OPT.k_fvoffset:.5}")
-print('\nTemp penalty  p * (T0 - (V * k + c))')
-print(f"p={OPT.tpower:.5} k={OPT.k_tmult:.5} c={OPT.k_toffset:.5}")
-print(f'\nT0={float(OPT.t0):.5}')
-
-hash_rate_err= 0
-for core,freq,temp,hashrate in data:
-    ypred = OPT.model([core,freq])
-    errH = abs(hashrate-ypred[0])
-    errT = abs(temp-ypred[1])
-    hash_rate_err+=errH
 
 print("\nErrors")
-print(f'Hashrate err ={errH/len(data)}')
-print(f'Temp err     ={errT/len(data)}')
+print(f'Hashrate err ={model.calc_err(model.history)}')
+#print(f'Temp err     ={errT/len(data)}')
 
 # Calulate best postition from model
-best_loc = OPT.maximise_eqn()
-
+best_loc = model.maximise_hashrate_eqn([[1050,1250],[400,625]])
+print(best_loc)
 print("\nThe Best Positions")
 print("Vcore Freq Hashrate")
 print("    Type   V    F   H")
-print("Benchmark ",int(OPT.get_best()[0][0]),int(OPT.get_best()[0][1]),int(OPT.get_best()[1]))
-print("    Model ",best_loc[0],best_loc[1],int(OPT.model(best_loc)[0]))
+print("Benchmark ",int(model.get_history_best()[0][0]),int(model.get_history_best()[0][1]),int(model.get_history_best()[1]))
+print("    Model ",best_loc[0],best_loc[1],int(model.evaluate(best_loc)))
 
 to_graph = False
 try:
@@ -125,11 +71,11 @@ except ImportError:
 
 
 if to_graph:
-    vcore_values = np.linspace(1050, 1350, 50)  # Example range for Vcore
-    f_values = np.linspace(350, 650, 50)      # Example range for F
+    vcore_values = np.linspace(1050, 1450, 100)  # Example range for Vcore
+    f_values = np.linspace(350, 700, 100)      # Example range for F
 
     grid = [(v, f) for v in vcore_values for f in f_values]
-    predicted_scores = [OPT.model(x)[0] for x in grid]
+    predicted_scores = [model.evaluate(x) for x in grid]
     vcore_grid, f_grid = np.meshgrid(vcore_values, f_values)
     predicted_grid = np.array(predicted_scores).reshape(len(f_values),len(vcore_values)).T
 
@@ -140,7 +86,7 @@ if to_graph:
 
     # Plot the predicted scores as a contour plot
     plt.figure(figsize=(8, 6))
-    contour = plt.contourf(vcore_grid, f_grid, predicted_grid, cmap='viridis', norm=norm, alpha=0.7)
+    contour = plt.contourf(vcore_grid, f_grid, predicted_grid, cmap='viridis', norm=norm, alpha=0.6)
 
     # Overlay the real benchmarked data as a scatter plot
     scatter = plt.scatter(
