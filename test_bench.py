@@ -9,7 +9,7 @@ import random
 import plotly.express as px
 import matplotlib.pyplot as plt
 
-bitaxe_ip = "192.168.1.139_ref"
+bitaxe_ip = "ref"
 
 root_path = __file__.replace("test_bench.py",f"/data/bitaxe_benchmark_results_{bitaxe_ip}.json")
 with open(root_path) as data:
