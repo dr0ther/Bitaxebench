@@ -48,12 +48,45 @@ here is the benchmarked data and fitted curve
 for the experiment i am using the above function as the basis for performance comparison
 
 I used 3 different methods to search 
-*  [baseline search](https://github.com/mrv777/Bitaxe-Hashrate-Benchmark)
-* hysterisis algorithom based on local history and results
-* parameterized hashrate model 
+*  baseline search
+```
+if (average_hashrate >= expected_hashrate * 0.92)
+    current_frequency += 25
+else
+    current_voltage += 25
+    current_frequency -= 25
+```
 
-Assumtions
-* BM1368 
+
+
+* hysterisis algorithom based on local history and results
+```
+if voltage_gain
+    if hashrate_gain
+        current_frequency += 25
+    else
+        current_voltage += 25
+
+if frequency_gain
+    if hashrate_gain
+            current_frequency += 25
+        else
+            current_voltage += 25
+```
+* parameterized hashrate model 
+```
+find the closest parameters (m,c,p) for the following 
+vmin = F*m + c
+voltage_penalty = sigmoid(p*(vmin-voltage))
+hashrate = freq*core*voltage_penalty
+
+the equation then is sampled for the maximum 
+the process is repeated
+1. find best equation match
+2. then get best point
+```
+
+
 
 ## Result (1% noise)
 the perfect function is the Hashrate function i showed earlier with a tiny amount of noise

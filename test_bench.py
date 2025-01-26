@@ -111,7 +111,7 @@ def bench_model():
     return results
 
 
-def bench_mrv():
+def bench_basline():
     initial_probes = [[1100,400]]
     results = []
     best = 0
@@ -210,7 +210,7 @@ for i in range(250):
     data.append([i,'model',*r])
 
 for i in range(250):
- for r in bench_mrv():
+ for r in bench_basline():
     data.append([i,'baseline',*r])
 
 for i in range(250):
