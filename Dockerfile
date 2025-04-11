@@ -13,5 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the script
 COPY bitaxe_hashrate_benchmark.py .
 
+RUN mkdir data
+
 # Set the entrypoint
 ENTRYPOINT ["python", "bitaxe_hashrate_benchmark.py"]
