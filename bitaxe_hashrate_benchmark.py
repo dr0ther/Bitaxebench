@@ -3,7 +3,7 @@ import time
 import json
 import signal
 import sys
-import argparse
+import os
 
 # ANSI Color Codes
 GREEN = "\033[92m"
@@ -11,37 +11,41 @@ YELLOW = "\033[93m"
 RED = "\033[91m"
 RESET = "\033[0m"
 
-# Add this before the configuration section
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Bitaxe Hashrate Benchmark Tool')
-    parser.add_argument('bitaxe_ip', nargs='?', help='IP address of the Bitaxe (e.g., 192.168.2.26)')
-    parser.add_argument('-v', '--voltage', type=int, default=1150,
-                       help='Initial voltage in mV (default: 1150)')
-    parser.add_argument('-f', '--frequency', type=int, default=500,
-                       help='Initial frequency in MHz (default: 500)')
-    
-    # If no arguments are provided, print help and exit
-    if len(sys.argv) == 1:
-        parser.print_help()
-        sys.exit(1)
-    
-    return parser.parse_args()
-
 # Replace the configuration section
-args = parse_arguments()
-bitaxe_ip = f"http://{args.bitaxe_ip}"
-initial_voltage = args.voltage
-initial_frequency = args.frequency
+miner_ip = os.environ['MINER_IP']
+bitaxe_ip = f"http://{miner_ip}"
+initial_voltage = int(os.environ['MINER_VOLTS'])
+initial_frequency = int(os.environ['MINER_FREQ'])
+
+if miner_ip == "169.254.1.1":
+        print(f"IP address of the Bitaxe  {miner_ip}")
+        print(f"Voltage {initial_voltage}")
+        print(f"Frequency {initial_frequency}")
+        print(f"  MINER_IP is still default, please change")
+        sys.exit(1)
+
+
+print(f"IP address of the Bitaxe  {miner_ip}")
+print(f"Voltage {initial_voltage}")
+print(f"Frequency {initial_frequency}")
 
 # Configuration
-voltage_increment =25
-frequency_increment = 25
-benchmark_time = 60   # 20 minutes benchmark time
-sample_interval = 3   # 30 seconds sample interval
-max_temp = 75         # Will stop if temperature reaches or exceeds this value
-max_allowed_voltage = 1300
-max_allowed_frequency = 650
-max_vr_temp = 90  # Maximum allowed voltage regulator temperature
+#voltage_increment =25
+#frequency_increment = 25
+#benchmark_time = 60   # 20 minutes benchmark time
+#sample_interval = 3   # 30 seconds sample interval
+#max_temp = 75         # Will stop if temperature reaches or exceeds this value
+#max_allowed_voltage = 1300
+#max_allowed_frequency = 650
+#max_vr_temp = 90  # Maximum allowed voltage regulator temperature
+voltage_increment = int(os.environ['VOLT_INC'])
+frequency_increment = int(os.environ['FREQ_INC'])
+benchmark_time = int(os.environ['BENCH_TIME'])   # 20 minutes benchmark time
+sample_interval = int(os.environ['SAM_INT'])   # 3 = 30 seconds sample interval
+max_temp = int(os.environ['MAX_ASIC_TEMP'])      # Will stop if temperature reaches or exceeds this value in C
+max_allowed_voltage = int(os.environ['MAX_VOLT'])
+max_allowed_frequency = int(os.environ['MAX_FREQ'])
+max_vr_temp = int(os.environ['MAX_VR_TEMP'])  # Maximum allowed voltage regulator temperature in C
 
 # Add these variables to the global configuration section
 small_core_count = None
